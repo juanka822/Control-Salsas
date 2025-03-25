@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Control de Inventario y Ventas</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; padding: 20px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid black; padding: 10px; text-align: left; }
+        th { background-color: #f2f2f2; }
+        .container { margin-bottom: 20px; }
+        canvas { max-width: 100%; height: auto; }
+    </style>
+</head>
+<body>
+    <h1>WebApp de Control de Inventario y Ventas</h1>
+    
+    <div class="container">
+        <h2>Inventario de Productos</h2>
+        <form id="form-inventario">
+            <input type="text" id="producto" placeholder="Producto" required>
+            <input type="number" id="cantidad" placeholder="Cantidad" required>
+            <input type="number" id="precio" placeholder="Precio" required>
+            <button type="submit">Agregar</button>
+        </form>
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Producto</th>
+                    <th>Cantidad</th>
+                    <th>Precio</th>
+                </tr>
+            </thead>
+            <tbody id="tabla-inventario"></tbody>
+        </table>
+        <canvas id="chart-inventario"></canvas>
+    </div>
+    
+    <div class="container">
+        <h2>Registro de Ventas</h2>
+        <form id="form-ventas">
+            <input type="text" id="cliente" placeholder="Cliente" required>
+            <input type="text" id="producto-venta" placeholder="Producto" required>
+            <input type="number" id="cantidad-venta" placeholder="Cantidad" required>
+            <button type="submit">Registrar Venta</button>
+        </form>
+        <table>
+            <thead>
+                <tr>
+                    <th>ID Venta</th>
+                    <th>Cliente</th>
+                    <th>Producto</th>
+                    <th>Cantidad</th>
+                    <th>Total</th>
+                </tr>
+            </thead>
+            <tbody id="tabla-ventas"></tbody>
+        </table>
+        <canvas id="chart-ventas"></canvas>
+    </div>
+
+    <div class="container">
+        <h2>Clientes</h2>
+        <form id="form-clientes">
+            <input type="text" id="nombre-cliente" placeholder="Nombre" required>
+            <input type="email" id="email-cliente" placeholder="Email" required>
+            <button type="submit">Registrar Cliente</button>
+        </form>
+        <table>
+            <thead>
+                <tr>
+                    <th>ID Cliente</th>
+                    <th>Nombre</th>
+                    <th>Email</th>
+                    <th>Compras Totales</th>
+                </tr>
+            </thead>
+            <tbody id="tabla-clientes"></tbody>
+        </table>
+        <canvas id="chart-clientes"></canvas>
+    </div>
+
+    <script>
+        let inventario = [];
+        let ventas = [];
+        let clientes = [];
+
+        const ctxInventario = document.getElementById('chart-inventario').getContext('2d');
+        const ctxVentas = document.getElementById('chart-ventas').getContext('2d');
+        const ctxClientes = document.getElementById('chart-clientes').getContext('2d');
+
+        let chartInventario = new Chart(ctxInventario, { type: 'bar', data: { labels: [], datasets: [{ label: 'Cantidad', data: [], backgroundColor: 'blue' }] }, options: { responsive: true } });
+        let chartVentas = new Chart(ctxVentas, { type: 'pie', data: { labels: [], datasets: [{ label: 'Ventas', data: [], backgroundColor: ['red', 'green', 'orange', 'blue'] }] }, options: { responsive: true } });
+        let chartClientes = new Chart(ctxClientes, { type: 'bar', data: { labels: [], datasets: [{ label: 'Compras', data: [], backgroundColor: 'purple' }] }, options: { responsive: true } });
+
+        function actualizarGraficos() {
+            chartInventario.data.labels = inventario.map(i => i.producto);
+            chartInventario.data.datasets[0].data = inventario.map(i => i.cantidad);
+            chartInventario.update();
+
+            chartVentas.data.labels = ventas.map(v => v.producto);
+            chartVentas.data.datasets[0].data = ventas.map(v => v.total);
+            chartVentas.update();
+
+            chartClientes.data.labels = clientes.map(c => c.nombre);
+            chartClientes.data.datasets[0].data = clientes.map(c => c.compras);
+            chartClientes.update();
+        }
+
+        document.getElementById("form-inventario").addEventListener("submit", function(event) {
+            event.preventDefault();
+            const producto = document.getElementById("producto").value;
+            const cantidad = document.getElementById("cantidad").value;
+            const precio = document.getElementById("precio").value;
+            const id = inventario.length + 1;
+            inventario.push({ id, producto, cantidad, precio });
+            actualizarTablaInventario();
+            actualizarGraficos();
+            this.reset();
+        });
+
+        function actualizarTablaInventario() {
+            const tbody = document.getElementById("tabla-inventario");
+            tbody.innerHTML = "";
+            inventario.forEach(item => {
+                tbody.innerHTML += `<tr><td>${item.id}</td><td>${item.producto}</td><td>${item.cantidad}</td><td>$${item.precio}</td></tr>`;
+            });
+        }
+
+        document.getElementById("form-ventas").addEventListener("submit", function(event) {
+            event.preventDefault();
+            const cliente = document.getElementById("cliente").value;
+            const producto = document.getElementById("producto-venta").value;
+            const cantidad = parseInt(document.getElementById("cantidad-venta").value);
+            const itemInventario = inventario.find(p => p.producto === producto);
+
+            if (!itemInventario || itemInventario.cantidad < cantidad) {
+                alert("Stock insuficiente o producto no encontrado");
+                return;
+            }
+
+            itemInventario.cantidad -= cantidad;
+            const total = cantidad * itemInventario.precio;
+            const id = ventas.length + 1;
+            ventas.push({ id, cliente, producto, cantidad, total });
+
+            const clienteEncontrado = clientes.find(c => c.nombre === cliente);
+            if (clienteEncontrado) clienteEncontrado.compras += total;
+
+            actualizarTablaVentas();
+            actualizarTablaInventario();
+            actualizarGraficos();
+            this.reset();
+        });
+
+        function actualizarTablaVentas() {
+            const tbody = document.getElementById("tabla-ventas");
+            tbody.innerHTML = "";
+            ventas.forEach(venta => {
+                tbody.innerHTML += `<tr><td>${venta.id}</td><td>${venta.cliente}</td><td>${venta.producto}</td><td>${venta.cantidad}</td><td>$${venta.total}</td></tr>`;
+            });
+        }
+
+        document.getElementById("form-clientes").addEventListener("submit", function(event) {
+            event.preventDefault();
+            const nombre = document.getElementById("nombre-cliente").value;
+            const email = document.getElementById("email-cliente").value;
+            clientes.push({ id: clientes.length + 1, nombre, email, compras: 0 });
+            actualizarTablaClientes();
+            actualizarGraficos();
+            this.reset();
+        });
+
+        function actualizarTablaClientes() {
+            const tbody = document.getElementById("tabla-clientes");
+            tbody.innerHTML = "";
+            clientes.forEach(cliente => {
+                tbody.innerHTML += `<tr><td>${cliente.id}</td><td>${cliente.nombre}</td><td>${cliente.email}</td><td>$${cliente.compras}</td></tr>`;
+            });
+        }
+    </script>
+</body>
+</html>
